@@ -49,6 +49,9 @@ class esp_accelerator : public sc_module
         // Debug port
         sc_out<debug_info_t> debug;
 
+        // Accelerator fence
+        b_put_initiator<sc_dt::sc_bv<2> > acc_fence;
+
         #if 1
 
         // DMA read control
@@ -80,12 +83,14 @@ class esp_accelerator : public sc_module
             , clk("clk")
             , rst("rst")
             , acc_done("acc_done")
+            , acc_fence("acc_fence")
             , dma_read_chnl("dma_read_chnl")
             , dma_read_ctrl("dma_read_ctrl")
             , dma_write_ctrl("dma_write_ctrl")
             , dma_write_chnl("dma_write_chnl")
         {
             // Clock and reset binding
+            acc_fence.clk_rst(clk, rst);
             dma_read_ctrl.clk_rst(clk, rst);
             dma_read_chnl.clk_rst(clk, rst);
             dma_write_ctrl.clk_rst(clk, rst);
