@@ -37,7 +37,11 @@ template <
 >
 inline void esp_accelerator<_DMA_WIDTH_>::reset_accelerator_done()
 {
-    acc_done.write(false);   
+    HLS_DEFINE_PROTOCOL("accelerator-done");
+
+    acc_done.write(false);
+    wait();
+    acc_fence.reset_put();
 }
 
 // Utility functions
