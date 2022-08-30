@@ -73,6 +73,9 @@ class esp_system : public sc_module
         // Debug port
         sc_signal<debug_info_t> debug;
 
+        // Accelerator fence
+        put_get_channel<sc_dt::sc_bv<2> > acc_fence;
+
         // Shared memory buffer model
         sc_dt::sc_bv<_DMA_WIDTH_> *mem;
 
@@ -95,6 +98,7 @@ class esp_system : public sc_module
             , conf_done("conf_done")
             , acc_rst("acc_rst")
             , acc_done("acc_done")
+            , acc_fence("acc_fence")
             , debug("debug")
             , mem(new sc_dt::sc_bv<_DMA_WIDTH_>[_MEM_SIZE_])
             , dmac(new esp_dma_controller<_DMA_WIDTH_, _MEM_SIZE_>("dma-controller", mem))
