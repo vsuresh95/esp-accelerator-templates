@@ -9,6 +9,10 @@
 #include "core/accelerators/esp_accelerator_2P.hpp"
 #include "core/accelerators/esp_accelerator_3P.hpp"
 
+#ifdef ENABLE_SM
+#include "core/accelerators/esp_accelerator_asi.hpp"
+#endif
+
 #include "core/systems/esp_system.hpp"
 
 #include "utils/configs/esp_config.hpp"
