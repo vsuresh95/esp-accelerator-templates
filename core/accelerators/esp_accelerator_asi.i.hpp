@@ -199,8 +199,9 @@ void esp_accelerator_asi<_DMA_WIDTH_>::asi_shim()
                 if(_dma_read_busy&&_load_asi_req_dma_read){
                     break;
                 }else{
-                    if(_load_req_dma_read)
+                    if(_load_req_dma_read){
                         dma_read_arbiter.write(LOAD_UNIT); // load unit
+		    }
                     else if(_store_asi_req_dma_read){
                         dma_read_arbiter.write(OUTPUT_ASI_UNIT); // Output ASI
                         asi_dma_read_busy.write(1);
@@ -228,7 +229,9 @@ void esp_accelerator_asi<_DMA_WIDTH_>::asi_shim()
                         dma_read_arbiter.write(INPUT_ASI_UNIT); // Input ASI
                         asi_dma_read_busy.write(1);
                     }
-                    else dma_read_arbiter.write(NO_UNIT); // No unit
+                    else {
+			dma_read_arbiter.write(NO_UNIT); // No unit
+		    }
                     break;
                 }
             }
@@ -256,7 +259,7 @@ void esp_accelerator_asi<_DMA_WIDTH_>::asi_shim()
             case NO_UNIT: //Default
             default:
             {
-                if(_dma_read_arbiter_prev==OUTPUT_ASI_UNIT && _load_asi_req_dma_read){
+		if(_dma_read_arbiter_prev==OUTPUT_ASI_UNIT && _load_asi_req_dma_read){
                     dma_read_arbiter.write(INPUT_ASI_UNIT); // Input ASI
                     asi_dma_read_busy.write(1);
                 }
@@ -396,11 +399,6 @@ inline void esp_accelerator_asi<_DMA_WIDTH_>::update_flag(int32_t sync_offset, i
 {
 	{
 		HLS_DEFINE_PROTOCOL("update_flag");
-//to resolve mesi hangs
-       	//	enforce w-w ordering of flag
-       	//	commented jul13
-		//while (!(this->dma_write_chnl.ready)) wait();
-		//wait();
 
 		dma_info_t dma_info(sync_offset/ DMA_WORD_PER_BEAT , 1, SIZE_DWORD); //round_up(sync_len, WORDS_PER_DMA) >> WORDS_PER_DMA_LOG
 		this->dma_write_ctrl.put(dma_info);
@@ -410,16 +408,6 @@ inline void esp_accelerator_asi<_DMA_WIDTH_>::update_flag(int32_t sync_offset, i
         	wait();
         	this->dma_write_chnl.put(dataBv);
         	wait();
-		
-       		////enforce w-w ordering of flag
-		//while (!(this->dma_write_chnl.ready)) wait();
-		//wait();
-
-		////FENCE
-		//this->acc_fence.put(0x2);
-		//wait();
-		//while (!(this->acc_fence.ready)) wait();
-		//wait();
 	}
 }
 
@@ -511,54 +499,32 @@ void esp_accelerator_asi<_DMA_WIDTH_>::input_asi_controller(){
                 wait();
             }
 
-            //Reset the prod valid flag
-	    input_asi_state_dbg.write(0x22334455);
-            load_asi_req_dma_write.write(1);
-            while(dma_write_arbiter.read() != INPUT_ASI_UNIT ) wait();
-	    input_asi_state_dbg.write(RESET_PROD_VALID_REQ);
-            update_flag(prod_valid_offset, 0);
-	    fence();
-            wait();
-            load_asi_req_dma_write.write(0);
-            wait();
-            asi_dma_write_busy.write(0);
-            wait();
-            prod_valid = 0;
-        //}
-
-        //{
-        //    HLS_DEFINE_PROTOCOL("set-prod-ready");
 	    input_asi_state_dbg.write(0x33445566);
             wait();
             end_load.ack.ack();
             
             wait();
 	    input_asi_state_dbg.write(last_task);
-            //if(last_task) {
-            //HLS_DEFINE_PROTOCOL("set-last");
-	    //    input_asi_state_dbg.write(0xdeadbeef);
-            //    wait();
-            //    break; 
-            //}
-            //
+ 
+            //Reset the prod valid flag
+            load_asi_req_dma_write.write(1);
+            while(dma_write_arbiter.read() != INPUT_ASI_UNIT ) wait();
+	    input_asi_state_dbg.write(RESET_PROD_VALID_REQ);
+            update_flag(prod_valid_offset, 0);
+	    fence();
+            wait();
             // Do not set producer ready if already read last task
-	    if(!last_task){
-            	wait();
-	    	input_asi_state_dbg.write(0x44556677);
-
-            	load_asi_req_dma_write.write(1);
-            	while(dma_write_arbiter.read() != INPUT_ASI_UNIT) wait();
+	    //if(!last_task){
 	    	input_asi_state_dbg.write(UPDATE_PROD_READY_REQ);
             	update_flag(prod_ready_offset, 1);
 		fence();
-            	wait();
+	    //}
+            load_asi_req_dma_write.write(0);
+            wait();
+            asi_dma_write_busy.write(0);
+            wait();
+            prod_valid = 0;
 
-            	//enforce w-w ordering of flag
-            	load_asi_req_dma_write.write(0);
-            	wait();
-            	asi_dma_write_busy.write(0);
-            	wait();
-	    }
         }
         iter++;
     }
@@ -628,10 +594,7 @@ void esp_accelerator_asi<_DMA_WIDTH_>::output_asi_controller(){
             }
             start_store.req.req();
             wait();
-        //}
-
-        //{
-        //    HLS_DEFINE_PROTOCOL("set-cons-valid");
+      
 	    output_asi_state_dbg.write(0x33445566);
             wait();
             end_store.ack.ack();
@@ -649,13 +612,6 @@ void esp_accelerator_asi<_DMA_WIDTH_>::output_asi_controller(){
 	    //fence();
             update_flag(cons_ready_offset, 0);
 	    fence();
-            //store_asi_req_dma_write.write(0);
-
-            //wait();
-
-            //store_asi_req_dma_write.write(1);
-            //wait();
-            //while(dma_write_arbiter.read() != OUTPUT_ASI_UNIT ) wait();
 
             //check last_task
             last_task = last.read();
@@ -678,25 +634,6 @@ void esp_accelerator_asi<_DMA_WIDTH_>::output_asi_controller(){
             wait();
             asi_dma_write_busy.write(0);
 
-            //if(exit_clause) {
-            //    output_asi_state_dbg.write(0xdeadbeef);
-            //    wait();
-            //	update_flag(cons_valid_offset, 2);
-            //    wait();
-	    //	output_asi_state_dbg.write(UPDATE_CONS_VALID_REQ);
-            //	store_asi_req_dma_write.write(0);
-            //	wait();
-            //	asi_dma_write_busy.write(0);
-            //	wait();
-            //}
-	    //else{
-	    //	output_asi_state_dbg.write(UPDATE_CONS_VALID_REQ);
-            //	update_flag(cons_valid_offset, 1);
-            //	store_asi_req_dma_write.write(0);
-            //	wait();
-            //	asi_dma_write_busy.write(0);
-            //	wait();
-	    //}
         }
         iter ++;
     }
